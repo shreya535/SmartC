@@ -1,42 +1,61 @@
 %{
 #include <stdio.h>
 
+FILE *yyin;
 int line = 1;
-int kw=0,id=0,num=0,op=0,sym=0,unk=0;
+int kw=0,id=0,num=0,str=0,chr=0,op=0,sym=0,err=0;
 %}
+
+%x COMMENT
 
 %%
 
 \n { line++; }
+"//".* ;
+"/*" { BEGIN(COMMENT); }
+<COMMENT>"*/" { BEGIN(INITIAL); }
+<COMMENT>\n { line++; }
+<COMMENT>. ;
 
-"int"|"float"|"if"|"while"|"return"     { printf("Line %d : KEYWORD : %s\n", line, yytext); kw++; }
+\"([^\\\"\n]|(\\.))*\" { printf("Line %d : STRING : %s\n", line, yytext); str++; }
+\'([^\\\'\n]|(\\.))\' { printf("Line %d : CHAR : %s\n", line, yytext); chr++; }
 
-[0-9]+                                  { printf("Line %d : NUMBER : %s\n", line, yytext); num++; }
+"int"|"float"|"char"|"double"|"void"|"if"|"else"|"for"|"while"|"return" { printf("Line %d : KEYWORD : %s\n", line, yytext); kw++; }
 
-[a-zA-Z_][a-zA-Z0-9_]*                  { printf("Line %d : IDENTIFIER : %s\n", line, yytext); id++; }
+[0-9]+\.[0-9]+ { printf("Line %d : FLOAT : %s\n", line, yytext); num++; }
+[0-9]+ { printf("Line %d : INTEGER : %s\n", line, yytext); num++; }
 
-[+\-*/=<>]                              { printf("Line %d : OPERATOR : %s\n", line, yytext); op++; }
+[A-Za-z_][A-Za-z0-9_]* { printf("Line %d : IDENTIFIER : %s\n", line, yytext); id++; }
 
-[;(){}]                                 { printf("Line %d : SYMBOL : %s\n", line, yytext); sym++; }
+"=="|"!="|"<="|">="|"="|"+"|"-"|"*"|"/"|"<"|">" { printf("Line %d : OPERATOR : %s\n", line, yytext); op++; }
 
-[ \t]+                                  ;
+";"|","|"("|")"|"{"|"}"|"["|"]" { printf("Line %d : SYMBOL : %s\n", line, yytext); sym++; }
 
-.                                       { printf("Line %d : UNKNOWN TOKEN : %s\n", line, yytext); unk++; }
+[ \t]+ ;
+
+. { printf("Line %d : UNKNOWN : %s\n", line, yytext); err++; }
 
 %%
 
-int main()
-{
-    printf("----- TOKEN OUTPUT -----\n\n");
+int main(){
+    yyin = fopen("../input.c","r");
+    if(!yyin){ printf("Error opening input.c\n"); return 1; }
+
+    printf("\n===== SmartC Lexical Analysis =====\n\n");
     yylex();
 
-    printf("\n----- SUMMARY -----\n");
-    printf("Keywords    : %d\n", kw);
-    printf("Identifiers : %d\n", id);
-    printf("Numbers     : %d\n", num);
-    printf("Operators   : %d\n", op);
-    printf("Symbols     : %d\n", sym);
-    printf("Unknown     : %d\n", unk);
+    printf("\n===== TOKEN SUMMARY =====\n");
+    printf("Keywords     : %d\n", kw);
+    printf("Identifiers  : %d\n", id);
+    printf("Numbers      : %d\n", num);
+    printf("Strings      : %d\n", str);
+    printf("Characters   : %d\n", chr);
+    printf("Operators    : %d\n", op);
+    printf("Symbols      : %d\n", sym);
+    printf("Unknown      : %d\n", err);
 
+    fclose(yyin);
     return 0;
 }
+
+int yywrap(){ return 1; }
