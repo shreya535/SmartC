@@ -38,7 +38,7 @@ int kw=0,id=0,num=0,str=0,chr=0,op=0,sym=0,err=0;
 %%
 
 int main(){
-    yyin = fopen("../input.c","r");
+    yyin = fopen("output.c","r");
     if(!yyin){ printf("Error opening input.c\n"); return 1; }
 
     printf("\n===== SmartC Lexical Analysis =====\n\n");
@@ -59,3 +59,5 @@ int main(){
 }
 
 int yywrap(){ return 1; }
+
+//instead of pi we should give value in     lexer open output.c     
