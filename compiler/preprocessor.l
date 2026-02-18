@@ -1,63 +1,88 @@
 %{
 #include <stdio.h>
+#include <string.h>
 
 FILE *yyin;
-int line = 1;
-int kw=0,id=0,num=0,str=0,chr=0,op=0,sym=0,err=0;
+FILE *out;
+
+#define MAX_MACROS 100
+
+char macro_names[MAX_MACROS][50];
+char macro_values[MAX_MACROS][200];
+int macro_count = 0;
+
+int find_macro(char *id){
+    int i;
+    for(i=0;i<macro_count;i++){
+        if(strcmp(id, macro_names[i])==0)
+            return i;
+    }
+    return -1;
+}
 %}
 
-%x COMMENT
+%x COMMENT STRING CHARLIT
+
+ID  [A-Za-z_][A-Za-z0-9_]*
 
 %%
 
-\n { line++; }
-"//".* ;
-"/*" { BEGIN(COMMENT); }
-<COMMENT>"*/" { BEGIN(INITIAL); }
-<COMMENT>\n { line++; }
-<COMMENT>. ;
-
-\"([^\\\"\n]|(\\.))*\" { printf("Line %d : STRING : %s\n", line, yytext); str++; }
-\'([^\\\'\n]|(\\.))\' { printf("Line %d : CHAR : %s\n", line, yytext); chr++; }
-
-"int"|"float"|"char"|"double"|"void"|"if"|"else"|"for"|"while"|"return" { printf("Line %d : KEYWORD : %s\n", line, yytext); kw++; }
-
-[0-9]+\.[0-9]+ { printf("Line %d : FLOAT : %s\n", line, yytext); num++; }
-[0-9]+ { printf("Line %d : INTEGER : %s\n", line, yytext); num++; }
-
-[A-Za-z_][A-Za-z0-9_]* { printf("Line %d : IDENTIFIER : %s\n", line, yytext); id++; }
-
-"=="|"!="|"<="|">="|"="|"+"|"-"|"*"|"/"|"<"|">" { printf("Line %d : OPERATOR : %s\n", line, yytext); op++; }
-
-";"|","|"("|")"|"{"|"}"|"["|"]" { printf("Line %d : SYMBOL : %s\n", line, yytext); sym++; }
-
-[ \t]+ ;
-
-. { printf("Line %d : UNKNOWN : %s\n", line, yytext); err++; }
-
-%%
-
-int main(){
-    yyin = fopen("output.c","r");
-    if(!yyin){ printf("Error opening input.c\n"); return 1; }
-
-    printf("\n===== SmartC Lexical Analysis =====\n\n");
-    yylex();
-
-    printf("\n===== TOKEN SUMMARY =====\n");
-    printf("Keywords     : %d\n", kw);
-    printf("Identifiers  : %d\n", id);
-    printf("Numbers      : %d\n", num);
-    printf("Strings      : %d\n", str);
-    printf("Characters   : %d\n", chr);
-    printf("Operators    : %d\n", op);
-    printf("Symbols      : %d\n", sym);
-    printf("Unknown      : %d\n", err);
-
-    fclose(yyin);
-    return 0;
+^[ \t]*#define[ \t]+{ID}[ \t]+.* {
+    if(macro_count < MAX_MACROS){
+        sscanf(yytext, "#define %s %[^\n]",
+               macro_names[macro_count],
+               macro_values[macro_count]);
+        macro_count++;
+    }
 }
 
-int yywrap(){ return 1; }
+"//".*        { fprintf(out,"%s",yytext); }
+"/*"          { BEGIN(COMMENT); fprintf(out,"/*"); }
+<COMMENT>"*/" { BEGIN(INITIAL); fprintf(out,"*/"); }
+<COMMENT>\n   { fprintf(out,"\n"); }
+<COMMENT>.    { fprintf(out,"%s",yytext); }
 
-//instead of pi we should give value in     lexer open output.c     
+\"            { BEGIN(STRING); fprintf(out,"\""); }
+<STRING>\"    { BEGIN(INITIAL); fprintf(out,"\""); }
+<STRING>\n    { fprintf(out,"\n"); }
+<STRING>.     { fprintf(out,"%s",yytext); }
+
+\'            { BEGIN(CHARLIT); fprintf(out,"\'"); }
+<CHARLIT>\'   { BEGIN(INITIAL); fprintf(out,"\'"); }
+<CHARLIT>\n   { fprintf(out,"\n"); }
+<CHARLIT>.    { fprintf(out,"%s",yytext); }
+
+{ID} {
+    int idx = find_macro(yytext);
+    if(idx!=-1)
+        fprintf(out,"%s", macro_values[idx]);
+    else
+        fprintf(out,"%s", yytext);
+}
+
+\n { fprintf(out,"\n"); }
+.  { fprintf(out,"%s",yytext); }
+
+%%
+int main() {
+
+    yyin = fopen("input.c", "r");
+    if(!yyin){
+        perror("Cannot open input.c");
+        return 1;
+    }
+
+    out = fopen("output.c", "w");
+    if(!out){
+        perror("Cannot create output.c");
+        return 1;
+    }
+
+    yylex();
+
+    fclose(yyin);
+    fclose(out);
+
+    printf(" Preprocessing complete. Check output.c\n");
+    return 0;
+}
