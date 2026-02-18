@@ -1,50 +1,63 @@
 %{
 #include <stdio.h>
-#include <string.h>
 
 FILE *yyin;
-FILE *out;
-
-char macro_name[50] = "";
-char macro_value[200] = "";
+int line = 1;
+int kw=0,id=0,num=0,str=0,chr=0,op=0,sym=0,err=0;
 %}
 
-ID  [A-Za-z_][A-Za-z0-9_]*
+%x COMMENT
 
 %%
 
-^#define[ \t]+{ID}[ \t]+.*    {
-    sscanf(yytext, "#define %s %[^\n]", macro_name, macro_value);
-}
+\n { line++; }
+"//".* ;
+"/*" { BEGIN(COMMENT); }
+<COMMENT>"*/" { BEGIN(INITIAL); }
+<COMMENT>\n { line++; }
+<COMMENT>. ;
 
-{ID}    {
-    if(strlen(macro_name) > 0 && strcmp(yytext, macro_name) == 0)
-        fprintf(out, "%s", macro_value);
-    else
-        fprintf(out, "%s", yytext);
-}
+\"([^\\\"\n]|(\\.))*\" { printf("Line %d : STRING : %s\n", line, yytext); str++; }
+\'([^\\\'\n]|(\\.))\' { printf("Line %d : CHAR : %s\n", line, yytext); chr++; }
 
-\n      { fprintf(out, "\n"); }
-.       { fprintf(out, "%s", yytext); }
+"int"|"float"|"char"|"double"|"void"|"if"|"else"|"for"|"while"|"return" { printf("Line %d : KEYWORD : %s\n", line, yytext); kw++; }
+
+[0-9]+\.[0-9]+ { printf("Line %d : FLOAT : %s\n", line, yytext); num++; }
+[0-9]+ { printf("Line %d : INTEGER : %s\n", line, yytext); num++; }
+
+[A-Za-z_][A-Za-z0-9_]* { printf("Line %d : IDENTIFIER : %s\n", line, yytext); id++; }
+
+"=="|"!="|"<="|">="|"="|"+"|"-"|"*"|"/"|"<"|">" { printf("Line %d : OPERATOR : %s\n", line, yytext); op++; }
+
+";"|","|"("|")"|"{"|"}"|"["|"]" { printf("Line %d : SYMBOL : %s\n", line, yytext); sym++; }
+
+[ \t]+ ;
+
+. { printf("Line %d : UNKNOWN : %s\n", line, yytext); err++; }
 
 %%
 
-int main() {
-    yyin = fopen("../input.c", "r");
-    out  = fopen("output.c", "w");
+int main(){
+    yyin = fopen("output.c","r");
+    if(!yyin){ printf("Error opening input.c\n"); return 1; }
 
-    if(!yyin || !out){
-        printf("File error\n");
-        return 1;
-    }
-
+    printf("\n===== SmartC Lexical Analysis =====\n\n");
     yylex();
 
-    fclose(yyin);
-    fclose(out);
+    printf("\n===== TOKEN SUMMARY =====\n");
+    printf("Keywords     : %d\n", kw);
+    printf("Identifiers  : %d\n", id);
+    printf("Numbers      : %d\n", num);
+    printf("Strings      : %d\n", str);
+    printf("Characters   : %d\n", chr);
+    printf("Operators    : %d\n", op);
+    printf("Symbols      : %d\n", sym);
+    printf("Unknown      : %d\n", err);
 
-    printf("Simple preprocessing done.\n");
+    fclose(yyin);
     return 0;
 }
 
 int yywrap(){ return 1; }
+
+//instead of pi we should give value in     lexer open output.c     
