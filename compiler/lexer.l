@@ -11,25 +11,28 @@ int kw=0,id=0,num=0,str=0,chr=0,op=0,sym=0,err=0;
 %%
 
 \n { line++; }
+
 "//".* ;
 "/*" { BEGIN(COMMENT); }
 <COMMENT>"*/" { BEGIN(INITIAL); }
 <COMMENT>\n { line++; }
 <COMMENT>. ;
 
+^#[^\n]* ;
+
 \"([^\\\"\n]|(\\.))*\" { printf("Line %d : STRING : %s\n", line, yytext); str++; }
 \'([^\\\'\n]|(\\.))\' { printf("Line %d : CHAR : %s\n", line, yytext); chr++; }
 
-"int"|"float"|"char"|"double"|"void"|"if"|"else"|"for"|"while"|"return" { printf("Line %d : KEYWORD : %s\n", line, yytext); kw++; }
+"int"|"float"|"char"|"double"|"void"|"if"|"else"|"for"|"while"|"switch"|"case"|"break"|"continue"|"return" { printf("Line %d : KEYWORD : %s\n", line, yytext); kw++; }
 
 [0-9]+\.[0-9]+ { printf("Line %d : FLOAT : %s\n", line, yytext); num++; }
 [0-9]+ { printf("Line %d : INTEGER : %s\n", line, yytext); num++; }
 
 [A-Za-z_][A-Za-z0-9_]* { printf("Line %d : IDENTIFIER : %s\n", line, yytext); id++; }
 
-"=="|"!="|"<="|">="|"="|"+"|"-"|"*"|"/"|"<"|">" { printf("Line %d : OPERATOR : %s\n", line, yytext); op++; }
+("=="|"!="|"<="|">="|"++"|"--"|"&&"|"||"|"->"|"<<="|">>="|"+="|"-="|"*="|"/="|"%="|"&="|"^="|"|="|"<<"|">>"|"+"|"-"|"*"|"/"|"%"|"="|"<"|">"|"!"|"&"|"|"|"^") { printf("Line %d : OPERATOR : %s\n", line, yytext); op++; }
 
-";"|","|"("|")"|"{"|"}"|"["|"]" { printf("Line %d : SYMBOL : %s\n", line, yytext); sym++; }
+(";"|","|"("|")"|"{"|"}"|"["|"]"|":"|"?"|".") { printf("Line %d : SYMBOL : %s\n", line, yytext); sym++; }
 
 [ \t]+ ;
 
@@ -39,7 +42,7 @@ int kw=0,id=0,num=0,str=0,chr=0,op=0,sym=0,err=0;
 
 int main(){
     yyin = fopen("output.c","r");
-    if(!yyin){ printf("Error opening input.c\n"); return 1; }
+    if(!yyin){ printf("Error opening output.c\n"); return 1; }
 
     printf("\n===== SmartC Lexical Analysis =====\n\n");
     yylex();
@@ -59,5 +62,3 @@ int main(){
 }
 
 int yywrap(){ return 1; }
-
-//instead of pi we should give value in     lexer open output.c     
