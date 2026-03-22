@@ -7,7 +7,7 @@ app = Flask(__name__)
 
 # ── Config ──
 COMPILER_DIR = os.path.join(os.path.dirname(__file__), '..', 'compiler')
-GROQ_API_KEY = "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"  # paste your gsk_... key here
+GROQ_API_KEY = "API_KEY"  # paste your gsk_... key here
 
 client = Groq(api_key=GROQ_API_KEY)
 
