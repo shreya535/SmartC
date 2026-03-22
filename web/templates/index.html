@@ -1,1 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SmartC — AI Compiler</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:       #03040a;
+  --surface:  #080d1a;
+  --border:   #0f1e3d;
+  --cyan:     #00ffe0;
+  --blue:     #0055ff;
+  --purple:   #7b2fff;
+  --red:      #ff2d55;
+  --green:    #00ff8c;
+  --amber:    #ffb700;
+  --text:     #c8d8f0;
+  --muted:    #3a4a6a;
+  --glow-c:   0 0 30px #00ffe044;
+  --glow-b:   0 0 30px #0055ff44;
+  --glow-p:   0 0 30px #7b2fff44;
+}
 
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Syne', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── animated grid background ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 60px 60px;
+  opacity: .35;
+  pointer-events: none;
+  z-index: 0;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  top: -40%;
+  left: -20%;
+  width: 80vw;
+  height: 80vw;
+  background: radial-gradient(circle, #0055ff08 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+  animation: drift 20s ease-in-out infinite alternate;
+}
+
+@keyframes drift {
+  from { transform: translate(0,0) scale(1); }
+  to   { transform: translate(15vw, 10vh) scale(1.2); }
+}
+
+/* ── top orb ── */
+.orb {
+  position: fixed;
+  top: -200px; right: -200px;
+  width: 600px; height: 600px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #7b2fff18 0%, transparent 65%);
+  pointer-events: none;
+  z-index: 0;
+  animation: pulse 8s ease-in-out infinite alternate;
+}
+
+@keyframes pulse {
+  from { opacity: .6; transform: scale(1); }
+  to   { opacity: 1;  transform: scale(1.15); }
+}
+
+/* ── layout ── */
+.wrap { position: relative; z-index: 1; max-width: 1300px; margin: 0 auto; padding: 0 24px; }
+
+/* ── header ── */
+header {
+  position: sticky; top: 0; z-index: 100;
+  backdrop-filter: blur(20px);
+  background: #03040acc;
+  border-bottom: 1px solid var(--border);
+}
+
+.header-inner {
+  display: flex; align-items: center; gap: 16px;
+  padding: 16px 24px;
+  max-width: 1300px; margin: 0 auto;
+}
+
+.logo {
+  display: flex; align-items: center; gap: 12px;
+}
+
+.logo-icon {
+  width: 38px; height: 38px;
+  background: linear-gradient(135deg, var(--cyan), var(--blue));
+  border-radius: 8px;
+  display: grid; place-items: center;
+  font-family: 'Space Mono', monospace;
+  font-size: 13px; font-weight: 700;
+  color: #000;
+  box-shadow: var(--glow-c);
+  animation: logoPulse 3s ease-in-out infinite;
+}
+
+@keyframes logoPulse {
+  0%,100% { box-shadow: 0 0 20px #00ffe044; }
+  50%      { box-shadow: 0 0 40px #00ffe099; }
+}
+
+.logo-text { font-size: 1.4rem; font-weight: 800; letter-spacing: 1px; }
+.logo-text span { color: var(--cyan); }
+
+.header-tags { display: flex; gap: 8px; margin-left: 20px; }
+
+.tag {
+  font-size: .65rem; font-weight: 700; letter-spacing: 1px;
+  padding: 3px 10px; border-radius: 4px;
+  font-family: 'Space Mono', monospace;
+  text-transform: uppercase;
+}
+.tag-flex  { background: #00ffe015; border: 1px solid #00ffe040; color: var(--cyan); }
+.tag-bison { background: #0055ff15; border: 1px solid #0055ff40; color: #6699ff; }
+.tag-ai    { background: #7b2fff15; border: 1px solid #7b2fff40; color: #bb88ff; }
+
+.header-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+
+.status-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green);
+  animation: blink 2s ease-in-out infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+.status-text { font-size: .75rem; color: var(--muted); font-family: 'Space Mono', monospace; }
+
+/* ── hero ── */
+.hero {
+  padding: 60px 0 40px;
+  text-align: center;
+}
+
+.hero-eyebrow {
+  font-family: 'Space Mono', monospace;
+  font-size: .7rem; letter-spacing: 4px;
+  color: var(--cyan); text-transform: uppercase;
+  margin-bottom: 16px;
+  opacity: 0; animation: fadeUp .6s .2s forwards;
+}
+
+.hero-title {
+  font-size: clamp(2.5rem, 6vw, 4.5rem);
+  font-weight: 800; line-height: 1.1;
+  margin-bottom: 16px;
+  opacity: 0; animation: fadeUp .6s .4s forwards;
+}
+
+.hero-title .accent { color: var(--cyan); }
+.hero-title .accent2 { color: var(--purple); }
+
+.hero-sub {
+  font-size: 1rem; color: var(--muted); max-width: 520px; margin: 0 auto 40px;
+  opacity: 0; animation: fadeUp .6s .6s forwards;
+  line-height: 1.7;
+}
+
+@keyframes fadeUp {
+  from { opacity:0; transform: translateY(20px); }
+  to   { opacity:1; transform: translateY(0); }
+}
+
+/* ── pipeline viz ── */
+.pipeline {
+  display: flex; align-items: center; justify-content: center;
+  gap: 0; margin: 0 auto 50px;
+  flex-wrap: wrap; gap: 4px;
+  opacity: 0; animation: fadeUp .6s .8s forwards;
+}
+
+.pipe-step {
+  display: flex; align-items: center; gap: 4px;
+}
+
+.pipe-node {
+  font-family: 'Space Mono', monospace;
+  font-size: .65rem; font-weight: 700;
+  padding: 6px 14px; border-radius: 20px;
+  letter-spacing: .5px;
+  transition: all .3s;
+}
+.pipe-node:hover { transform: translateY(-3px); }
+
+.pn-1 { background: #00ffe015; border: 1px solid var(--cyan); color: var(--cyan); box-shadow: var(--glow-c); }
+.pn-2 { background: #0055ff15; border: 1px solid var(--blue); color: #88aaff; box-shadow: var(--glow-b); }
+.pn-3 { background: #0055ff15; border: 1px solid var(--blue); color: #88aaff; box-shadow: var(--glow-b); }
+.pn-4 { background: #7b2fff15; border: 1px solid var(--purple); color: #bb88ff; box-shadow: var(--glow-p); }
+.pn-5 { background: #00ff8c15; border: 1px solid var(--green); color: var(--green); }
+
+.pipe-arrow { color: var(--muted); font-size: .8rem; padding: 0 2px; }
+
+/* ── editor section ── */
+.editor-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  margin-bottom: 24px;
+  box-shadow: 0 20px 60px #00000066;
+}
+
+.editor-bar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 20px;
+  background: #080d1a;
+  border-bottom: 1px solid var(--border);
+}
+
+.editor-dots { display: flex; gap: 6px; }
+.dot { width: 12px; height: 12px; border-radius: 50%; }
+.dot-r { background: #ff5f57; }
+.dot-y { background: #febc2e; }
+.dot-g { background: #28c840; }
+
+.editor-title {
+  font-family: 'Space Mono', monospace;
+  font-size: .7rem; color: var(--muted);
+  margin-left: 4px;
+}
+
+.editor-actions { margin-left: auto; display: flex; gap: 8px; }
+
+.btn-ghost {
+  font-family: 'Space Mono', monospace;
+  font-size: .65rem; font-weight: 700;
+  padding: 5px 14px; border-radius: 6px;
+  border: 1px solid var(--border); background: transparent;
+  color: var(--muted); cursor: pointer;
+  transition: all .2s; letter-spacing: .5px;
+}
+.btn-ghost:hover { border-color: var(--cyan); color: var(--cyan); }
+
+textarea {
+  width: 100%; height: 280px;
+  background: #03040a;
+  border: none; outline: none;
+  color: #c8d8f0;
+  font-family: 'Space Mono', monospace;
+  font-size: 13.5px; line-height: 1.8;
+  padding: 20px 24px;
+  resize: vertical;
+  tab-size: 4;
+}
+
+textarea::placeholder { color: #1e2e4a; }
+
+/* ── run bar ── */
+.run-bar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 16px 20px;
+  background: #080d1a;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.btn-run {
+  display: flex; align-items: center; gap: 10px;
+  font-family: 'Syne', sans-serif;
+  font-size: .9rem; font-weight: 800;
+  padding: 12px 32px; border-radius: 10px;
+  border: none; cursor: pointer;
+  background: linear-gradient(135deg, var(--cyan) 0%, var(--blue) 100%);
+  color: #000;
+  letter-spacing: .5px;
+  transition: all .3s;
+  position: relative; overflow: hidden;
+}
+
+.btn-run::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, #fff4 0%, transparent 100%);
+  opacity: 0; transition: opacity .3s;
+}
+.btn-run:hover::before { opacity: 1; }
+.btn-run:hover { transform: translateY(-2px); box-shadow: 0 8px 30px #00ffe044; }
+.btn-run:active { transform: translateY(0); }
+
+.btn-run .run-icon { font-size: 1rem; }
+
+.shortcut {
+  font-family: 'Space Mono', monospace;
+  font-size: .65rem; color: var(--muted);
+}
+
+.loading-bar {
+  display: none; align-items: center; gap: 12px;
+  margin-left: auto;
+}
+
+.loading-bar.active { display: flex; }
+
+.loader {
+  display: flex; gap: 4px; align-items: center;
+}
+.loader span {
+  width: 4px; height: 16px; border-radius: 2px;
+  background: var(--cyan);
+  animation: wave 1s ease-in-out infinite;
+}
+.loader span:nth-child(2) { animation-delay: .1s; }
+.loader span:nth-child(3) { animation-delay: .2s; }
+.loader span:nth-child(4) { animation-delay: .3s; }
+.loader span:nth-child(5) { animation-delay: .4s; }
+
+@keyframes wave {
+  0%,100% { height: 6px; opacity: .4; }
+  50%      { height: 20px; opacity: 1; }
+}
+
+.loading-text {
+  font-family: 'Space Mono', monospace;
+  font-size: .7rem; color: var(--cyan);
+  letter-spacing: 1px;
+}
+
+/* ── stats row ── */
+.stats-row {
+  display: none; grid-template-columns: repeat(4, 1fr); gap: 12px;
+  margin-bottom: 24px;
+}
+.stats-row.show { display: grid; animation: fadeUp .4s forwards; }
+
+.stat {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 20px;
+  display: flex; align-items: center; gap: 14px;
+  transition: all .3s;
+}
+.stat:hover { border-color: var(--cyan); transform: translateY(-2px); }
+
+.stat-icon { font-size: 1.4rem; }
+
+.stat-num {
+  font-size: 1.6rem; font-weight: 800;
+  font-family: 'Space Mono', monospace;
+  line-height: 1;
+}
+.stat-num.c { color: var(--red); }
+.stat-num.w { color: var(--amber); }
+.stat-num.f { color: var(--green); }
+.stat-num.a { color: var(--purple); }
+
+.stat-label { font-size: .7rem; color: var(--muted); margin-top: 3px; }
+
+/* ── results grid ── */
+.results-grid {
+  display: none;
+  gap: 16px;
+}
+.results-grid.show { display: grid; animation: fadeUp .4s forwards; }
+
+.results-top { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.results-bottom { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+.results-full { margin-top: 16px; }
+
+/* ── panels ── */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px; overflow: hidden;
+  transition: border-color .3s;
+}
+.panel:hover { border-color: #1a3060; }
+
+.panel-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 13px 18px;
+  border-bottom: 1px solid var(--border);
+  font-size: .8rem; font-weight: 700; letter-spacing: .5px;
+}
+
+.ph-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+.ph-cyan  { background: var(--cyan);   box-shadow: 0 0 8px var(--cyan); }
+.ph-red   { background: var(--red);    box-shadow: 0 0 8px var(--red); }
+.ph-green { background: var(--green);  box-shadow: 0 0 8px var(--green); }
+.ph-purple{ background: var(--purple); box-shadow: 0 0 8px var(--purple); }
+
+.ph-cyan-t   { color: var(--cyan); }
+.ph-red-t    { color: var(--red); }
+.ph-green-t  { color: var(--green); }
+.ph-purple-t { color: var(--purple); }
+
+.ai-pill {
+  margin-left: auto;
+  font-size: .6rem; font-weight: 700;
+  padding: 2px 10px; border-radius: 10px;
+  background: #7b2fff22; border: 1px solid #7b2fff66;
+  color: #bb88ff; letter-spacing: 1px;
+  font-family: 'Space Mono', monospace;
+}
+
+.panel-body {
+  padding: 18px 20px;
+  font-family: 'Space Mono', monospace;
+  font-size: 12.5px; line-height: 1.8;
+  max-height: 380px; overflow-y: auto;
+  white-space: pre-wrap; word-break: break-word;
+  color: #a0b8d8;
+}
+
+.panel-body.prose {
+  font-family: 'Syne', sans-serif;
+  font-size: 14px; line-height: 1.8;
+  color: var(--text);
+}
+
+.err-line  { color: var(--red); }
+.warn-line { color: var(--amber); }
+.ok-line   { color: var(--green); }
+
+/* scrollbar */
+.panel-body::-webkit-scrollbar { width: 4px; }
+.panel-body::-webkit-scrollbar-track { background: transparent; }
+.panel-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* ── copy btn ── */
+.copy-btn {
+  margin-left: auto;
+  font-family: 'Space Mono', monospace;
+  font-size: .6rem; padding: 3px 10px;
+  border: 1px solid var(--border); border-radius: 4px;
+  background: transparent; color: var(--muted);
+  cursor: pointer; transition: all .2s;
+}
+.copy-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+
+/* ── footer ── */
+footer {
+  margin-top: 60px;
+  padding: 30px 24px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+
+.footer-inner {
+  display: flex; align-items: center; justify-content: center; gap: 24px;
+  flex-wrap: wrap;
+}
+
+.footer-tag {
+  font-family: 'Space Mono', monospace;
+  font-size: .65rem; color: var(--muted);
+  letter-spacing: 1px;
+}
+
+.footer-tag span { color: var(--cyan); }
+
+/* ── scanline effect ── */
+.scanline {
+  position: fixed; inset: 0; pointer-events: none; z-index: 999;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    #00000008 2px,
+    #00000008 4px
+  );
+}
+</style>
+</head>
+<body>
+
+<div class="scanline"></div>
+<div class="orb"></div>
+
+<!-- HEADER -->
+<header>
+  <div class="header-inner">
+    <div class="logo">
+      <div class="logo-icon">SC</div>
+      <div class="logo-text">Smart<span>C</span></div>
+    </div>
+    <div class="header-tags">
+      <span class="tag tag-flex">Flex</span>
+      <span class="tag tag-bison">Bison</span>
+      <span class="tag tag-ai">Groq AI</span>
+    </div>
+    <div class="header-right">
+      <div class="status-dot"></div>
+      <span class="status-text">SYSTEM ONLINE</span>
+    </div>
+  </div>
+</header>
+
+<!-- HERO -->
+<div class="wrap">
+  <div class="hero">
+    <p class="hero-eyebrow">// Compiler Front-End Project</p>
+    <h1 class="hero-title">
+      Analyze. Fix.<br>
+      <span class="accent">Understand</span> your
+      <span class="accent2">C code</span>.
+    </h1>
+    <p class="hero-sub">
+      A full compiler pipeline — lexer, parser, semantic analysis — enhanced with Groq AI for intelligent fixes and plain-English explanations.
+    </p>
+
+    <!-- Pipeline -->
+    <div class="pipeline">
+      <div class="pipe-step">
+        <div class="pipe-node pn-1">Preprocessor</div>
+        <span class="pipe-arrow">→</span>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-node pn-2">Lexer</div>
+        <span class="pipe-arrow">→</span>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-node pn-3">Parser</div>
+        <span class="pipe-arrow">→</span>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-node pn-3">Semantic</div>
+        <span class="pipe-arrow">→</span>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-node pn-4">Fix Engine</div>
+        <span class="pipe-arrow">→</span>
+      </div>
+      <div class="pipe-node pn-5">Groq AI ✦</div>
+    </div>
+  </div>
+
+  <!-- EDITOR -->
+  <div class="editor-section">
+    <div class="editor-bar">
+      <div class="editor-dots">
+        <div class="dot dot-r"></div>
+        <div class="dot dot-y"></div>
+        <div class="dot dot-g"></div>
+      </div>
+      <span class="editor-title">input.c — SmartC Editor</span>
+      <div class="editor-actions">
+        <button class="btn-ghost" onclick="loadSample()">Load Sample</button>
+        <button class="btn-ghost" onclick="clearAll()">Clear</button>
+      </div>
+    </div>
+
+    <textarea id="code" placeholder="// Paste your C code here or click Load Sample
+#include &lt;stdio.h&gt;
+
+int main() {
+    // start coding...
+    return 0;
+}"></textarea>
+
+    <div class="run-bar">
+      <button class="btn-run" onclick="analyze()">
+        <span class="run-icon">⚡</span>
+        Analyze &amp; Fix
+      </button>
+      <span class="shortcut">or Ctrl + Enter</span>
+      <div class="loading-bar" id="loading">
+        <div class="loader">
+          <span></span><span></span><span></span><span></span><span></span>
+        </div>
+        <span class="loading-text">RUNNING PIPELINE...</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-row" id="stats">
+    <div class="stat">
+      <span class="stat-icon">🔴</span>
+      <div>
+        <div class="stat-num c" id="s-err">0</div>
+        <div class="stat-label">ERRORS</div>
+      </div>
+    </div>
+    <div class="stat">
+      <span class="stat-icon">🟡</span>
+      <div>
+        <div class="stat-num w" id="s-warn">0</div>
+        <div class="stat-label">WARNINGS</div>
+      </div>
+    </div>
+    <div class="stat">
+      <span class="stat-icon">🟢</span>
+      <div>
+        <div class="stat-num f" id="s-fix">0</div>
+        <div class="stat-label">FIXES APPLIED</div>
+      </div>
+    </div>
+    <div class="stat">
+      <span class="stat-icon">🤖</span>
+      <div>
+        <div class="stat-num a">AI</div>
+        <div class="stat-label">GROQ LLAMA 3</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="results-grid" id="results">
+
+    <div class="results-top">
+      <!-- Original -->
+      <div class="panel">
+        <div class="panel-head">
+          <div class="ph-dot ph-cyan"></div>
+          <span class="ph-cyan-t">Original Code</span>
+          <button class="copy-btn" onclick="copyPanel('p-orig')">copy</button>
+        </div>
+        <div class="panel-body" id="p-orig"></div>
+      </div>
+
+      <!-- Errors -->
+      <div class="panel">
+        <div class="panel-head">
+          <div class="ph-dot ph-red"></div>
+          <span class="ph-red-t">Compiler Errors</span>
+        </div>
+        <div class="panel-body" id="p-err"></div>
+      </div>
+    </div>
+
+    <div class="results-bottom">
+      <!-- Rule Fix -->
+      <div class="panel">
+        <div class="panel-head">
+          <div class="ph-dot ph-green"></div>
+          <span class="ph-green-t">Rule-Based Fix</span>
+          <button class="copy-btn" onclick="copyPanel('p-rule')">copy</button>
+        </div>
+        <div class="panel-body" id="p-rule"></div>
+      </div>
+
+      <!-- AI Code -->
+      <div class="panel">
+        <div class="panel-head">
+          <div class="ph-dot ph-purple"></div>
+          <span class="ph-purple-t">AI Corrected Code</span>
+          <span class="ai-pill">GROQ AI</span>
+          <button class="copy-btn" onclick="copyPanel('p-ai')">copy</button>
+        </div>
+        <div class="panel-body" id="p-ai"></div>
+      </div>
+    </div>
+
+    <!-- AI Explanation -->
+    <div class="results-full">
+      <div class="panel">
+        <div class="panel-head">
+          <div class="ph-dot ph-purple"></div>
+          <span class="ph-purple-t">AI Explanation</span>
+          <span class="ai-pill">GROQ AI</span>
+        </div>
+        <div class="panel-body prose" id="p-explain"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    <div class="footer-inner">
+      <span class="footer-tag">SmartC <span>v1.0</span></span>
+      <span class="footer-tag">Flex <span>+</span> Bison</span>
+      <span class="footer-tag">Symbol Table</span>
+      <span class="footer-tag">Fix Engine</span>
+      <span class="footer-tag">Groq <span>LLaMA 3</span></span>
+      <span class="footer-tag">Compile Crew <span>2025</span></span>
+    </div>
+  </footer>
+</div>
+
+<script>
+function analyze() {
+  const code = document.getElementById('code').value.trim();
+  if (!code) { alert('Please enter some C code!'); return; }
+
+  document.getElementById('loading').classList.add('active');
+  document.getElementById('results').classList.remove('show');
+  document.getElementById('stats').classList.remove('show');
+
+  fetch('/analyze', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'code=' + encodeURIComponent(code)
+  })
+  .then(r => r.json())
+  .then(data => {
+    document.getElementById('loading').classList.remove('active');
+
+    document.getElementById('p-orig').textContent = data.original;
+    document.getElementById('p-rule').textContent = data.rule_fix;
+    document.getElementById('p-ai').textContent   = data.ai_code;
+    document.getElementById('p-explain').textContent = data.ai_explanation;
+
+    const errDiv = document.getElementById('p-err');
+    errDiv.innerHTML = '';
+    data.errors.split('\n').forEach(line => {
+      const d = document.createElement('div');
+      d.textContent = line;
+      if (line.startsWith('ERROR') || line.startsWith('SYNTAX')) d.className = 'err-line';
+      else if (line.startsWith('WARNING')) d.className = 'warn-line';
+      else if (line.includes('No errors')) d.className = 'ok-line';
+      errDiv.appendChild(d);
+    });
+
+    const ec = (data.errors.match(/^ERROR|^SYNTAX/gm) || []).length;
+    const wc = (data.errors.match(/^WARNING/gm) || []).length;
+
+    document.getElementById('s-err').textContent  = ec;
+    document.getElementById('s-warn').textContent = wc;
+    document.getElementById('s-fix').textContent  = ec;
+
+    document.getElementById('stats').classList.add('show');
+    document.getElementById('results').classList.add('show');
+
+    document.getElementById('stats').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  })
+  .catch(err => {
+    document.getElementById('loading').classList.remove('active');
+    alert('Error: ' + err);
+  });
+}
+
+function clearAll() {
+  document.getElementById('code').value = '';
+  document.getElementById('results').classList.remove('show');
+  document.getElementById('stats').classList.remove('show');
+}
+
+function loadSample() {
+  document.getElementById('code').value =
+`#include <stdio.h>
+
+int main() {
+    x = 10;
+    printf("%d", y)
+    return 0;
+}`;
+}
+
+function copyPanel(id) {
+  const text = document.getElementById(id).textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = event.target;
+    btn.textContent = 'copied!';
+    setTimeout(() => btn.textContent = 'copy', 1500);
+  });
+}
+
+document.getElementById('code').addEventListener('keydown', e => {
+  if (e.ctrlKey && e.key === 'Enter') analyze();
+});
+</script>
+</body>
+</html>
